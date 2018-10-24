@@ -66,8 +66,8 @@ int main (int argc, char** argv)
 
     //M << -3,3,1,-1,-1,-1,1,1,1,1,1,1;
     //M1 << -2,2,2,-2,-1,-1,1,1,1,1,1,1;
-    M << 1,0,0,1,0,1,0,1,0,0,1,1;
-    M1 << 1,3,0,7,2,2,1,11,3,1,1,10;
+    //M << 1,0,0,1,0,1,0,1,0,0,1,1;
+    //M1 << 1,3,0,7,2,2,1,11,3,1,1,10;
     std::cout << "Matrix M\n\n" << M << std::endl;
     std::cout << "Matrix M1\n\n" << M1 << std::endl;
     
@@ -105,8 +105,8 @@ int main (int argc, char** argv)
             
             int x = std::round(m_pixel[0]);
             int y = std::round(m_pixel[1]);
-            std::cout << m_pixel[0] << " " << x << std::endl;
-            std::cout << m_pixel[1] << " " << y << std::endl;
+            //std::cout << m_pixel[0] << " " << x << std::endl;
+            //std::cout << m_pixel[1] << " " << y << std::endl;
             if (x >= 0 and y >= 0 and x < (int)width and y < (int)height) {
                 Vec3b color = image.at<Vec3b>(Point(x, y));
                 new_image.at<Vec3b>(Point(i, j)) = color;
