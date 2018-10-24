@@ -95,8 +95,8 @@ int main (int argc, char** argv)
     P_inverse = P.inverse();
     std::cout << "P_inverse\n" << std::endl << P_inverse << std::endl;
     
-    for (unsigned i = 0; i <= height; ++i) {
-        for (unsigned j = 0; j <= width; ++j) {
+    for (unsigned i = 0; i < height; ++i) {
+        for (unsigned j = 0; j < width; ++j) {
             Eigen::Vector3f m1_pixel;
             m1_pixel << i, j, 1;
             Eigen::Vector3f m_pixel = P_inverse * m1_pixel;
@@ -107,9 +107,9 @@ int main (int argc, char** argv)
             int y = std::round(m_pixel[1]);
             //std::cout << m_pixel[0] << " " << x << std::endl;
             //std::cout << m_pixel[1] << " " << y << std::endl;
-            if (x >= 0 and y >= 0 and x < (int)width and y < (int)height) {
-                Vec3b color = image.at<Vec3b>(Point(x, y));
-                new_image.at<Vec3b>(Point(i, j)) = color;
+            if (x >= 0 and y >= 0 and x < (int)height and y < (int)width) {
+                Vec3b color = image.at<Vec3b>(Point(y,x));
+                new_image.at<Vec3b>(Point(j,i)) = color;
             }
         }
     }
