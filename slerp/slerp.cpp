@@ -23,7 +23,7 @@ Eigen::MatrixXf Euler2A(double phi, double theta, double psi)
     return R_z * R_y * R_x;
 }
 
-Eigen::MatrixXf Rodriguez(Eigen::Vector3f p, double angle, Eigen::MatrixXf E)
+Eigen::MatrixXf Rodrigues(Eigen::Vector3f p, double angle, Eigen::MatrixXf E)
 {
     Eigen::MatrixXf p_pt(3, 3);
     p_pt = p * p.transpose();
@@ -61,14 +61,8 @@ Eigen::Vector3f A2Euler(Eigen::MatrixXf A)
     return v;
 }
 
-int main()
+Eigen::Vector4f A2AngleAxis(Eigen::MatrixXf A, Eigen::MatrixXf E)
 {
-    Eigen::MatrixXf E(3, 3);
-    E << 1, 0, 0, 0, 1, 0, 0, 0, 1;
-
-    Eigen::MatrixXf A(3, 3);
-    A = Euler2A(-atan(0.25), -asin(0.8888888888888888), atan(4));
-    
     Eigen::MatrixXf A1(3, 3);
     A1 = A - E;
     
@@ -85,13 +79,70 @@ int main()
 
     double angle = acos((u.dot(u1)) / u.norm() * u1.norm());
 
+    Eigen::Vector4f v;
+    v << p, angle;
+
+    return v;
+}
+
+Eigen::Vector4f AngleAxis2Q(Eigen::Vector3f p, double angle)
+{
+    Eigen::Vector4f q;
+    q << sin(angle / 2.0) * p.normalized(), cos(angle / 2.0);
+
+    return q;
+}
+
+Eigen::Vector4f AngleAxis2Q(Eigen::Vector4f q)
+{
+    q /= q.norm();
+    if (q(3) < 0) {
+        q =-q;
+    }
+
+    Eigen::Vector3f p;
+
+    if (abs(q(3)) == 1) {
+        p << 1, 0, 0;
+    }
+    else {
+        p << q(0), q(1), q(2);
+        p /= p.norm();
+    }
+
+    Eigen::Vector4f v;
+    v << p, 2 * acos(q(3));
+
+    return v;
+}
+
+int main()
+{
+    Eigen::MatrixXf E(3, 3);
+    E << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+
+    Eigen::MatrixXf A(3, 3);
+    A = Euler2A(-atan(0.25), -asin(0.8888888888888888), atan(4));
+    //std::cout << A << std::endl;
+
+    Eigen::Vector4f p_angle;
+    p_angle = A2AngleAxis(A, E);
+    double angle = p_angle(3);
+    Eigen::Vector3f p(p_angle(0), p_angle(1), p_angle(2));
+
     Eigen::MatrixXf Rp_angle(3, 3);
-    Rp_angle = Rodriguez(p, angle, E);
-    std::cout << Rp_angle << std::endl;
+    Rp_angle = Rodrigues(p, angle, E);
+    //std::cout << Rp_angle << std::endl;
 
     Eigen::Vector3f v;
     v = A2Euler(A);
-    std::cout << v << std::endl;
+    //std::cout << v << std::endl;
     
+    Eigen::Vector4f q = AngleAxis2Q(p, angle);
+    //std::cout << q(0) << "i +" << q(1) << "j +" << q(2) << "k +" << q(3) << std::endl;
+    
+    Eigen::Vector4f w = AngleAxis2Q(q);
+    //std::cout << w << std::endl;
+
     return 0;
 }
