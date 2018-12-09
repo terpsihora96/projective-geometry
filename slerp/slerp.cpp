@@ -1,6 +1,29 @@
 #include <iostream>
 #include <cmath>
 #include <eigen3/Eigen/Eigenvalues>
+#include <GL/glut.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+
+#define TIMER_ID 0
+#define TIMER_INTERVAL 20
+
+int animation_ongoing;
+
+double t1 = 2;      // overall time of the animation
+double t = 0;       // time elapsed
+
+Eigen::Vector3f C1;     // position of the object in the begining
+Eigen::Vector3f C2;     // position of the object in the end
+Eigen::MatrixXf E(3, 3);
+
+double phi_1, theta_1, psi_1;
+double phi_2, theta_2, psi_2;
+
+void on_keyboard(unsigned char key, int, int);
+void on_reshape(int width, int height);
+void on_timer(int id);
+void display(void);
 
 Eigen::MatrixXf Euler2A(double phi, double theta, double psi)
 {
@@ -42,7 +65,7 @@ Eigen::Vector3f A2Euler(Eigen::MatrixXf A)
         if (A(2, 0) > -1) {
             psi = atan2(A(1, 0), A(0, 0));
             theta = asin(-A(2, 0));
-            phi = atan2 (A(2, 1), A(2, 2));
+            phi = atan2(A(2, 1), A(2, 2));
         }
         else {
             psi = atan2(A(0, 1), A(1, 1));
@@ -77,7 +100,7 @@ Eigen::Vector4f A2AngleAxis(Eigen::MatrixXf A, Eigen::MatrixXf E)
         p = -p;
     }
 
-    double angle = acos((u.dot(u1)) / u.norm() * u1.norm());
+    double angle = acos((u.dot(u1)) / (u.norm() * u1.norm()));
 
     Eigen::Vector4f v;
     v << p, angle;
@@ -93,7 +116,7 @@ Eigen::Vector4f AngleAxis2Q(Eigen::Vector3f p, double angle)
     return q;
 }
 
-Eigen::Vector4f AngleAxis2Q(Eigen::Vector4f q)
+Eigen::Vector4f Q2AngleAxis(Eigen::Vector4f q)
 {
     q /= q.norm();
     if (q(3) < 0) {
@@ -116,7 +139,7 @@ Eigen::Vector4f AngleAxis2Q(Eigen::Vector4f q)
     return v;
 }
 
-Eigen::Vector4f slerp(Eigen::Vector4f q1, Eigen::Vector4f q2, int t, int t1)
+Eigen::Vector4f slerp(Eigen::Vector4f q1, Eigen::Vector4f q2)
 {
     double cos_ = q1.dot(q2) / (q1.norm() * q2.norm());
 
@@ -130,43 +153,219 @@ Eigen::Vector4f slerp(Eigen::Vector4f q1, Eigen::Vector4f q2, int t, int t1)
     }
     
     double angle = acos(cos_);
-
-    return (sin(angle * (1 - t / t1)) * q1 + sin(angle * (t / t1)) * q2) / sin(angle);
+    Eigen::Vector4f q;
+    q = (sin(angle * (1 - t / t1)) * q1 + sin(angle * (t / t1)) * q2) / sin(angle);
+    
+    return q;
 }
 
-int main()
+static void draw_coosys()
 {
-    Eigen::MatrixXf E(3, 3);
+    glDisable(GL_LIGHTING);
+    glBegin(GL_LINES);
+        glColor3f(1, 0, 0);
+        glVertex3f(1, 0, 0);
+        glVertex3f(0, 0, 0);
+
+        glColor3f(0, 1, 0);
+        glVertex3f(0, 1, 0);
+        glVertex3f(0, 0, 0);
+
+        glColor3f(0, 0, 1);
+        glVertex3f(0, 0, 1);
+        glVertex3f(0, 0, 0);
+    glEnd();
+    glEnable(GL_LIGHTING);
+}
+
+int main(int argc, char** argv)
+{
     E << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
-    Eigen::MatrixXf A(3, 3);
-    A = Euler2A(-atan(0.25), -asin(0.8888888888888888), atan(4));
-    //std::cout << A << std::endl;
-
-    Eigen::Vector4f p_angle;
-    p_angle = A2AngleAxis(A, E);
-    double angle = p_angle(3);
-    Eigen::Vector3f p(p_angle(0), p_angle(1), p_angle(2));
-
-    Eigen::MatrixXf Rp_angle(3, 3);
-    Rp_angle = Rodrigues(p, angle, E);
-    //std::cout << Rp_angle << std::endl;
-
-    Eigen::Vector3f v;
-    v = A2Euler(A);
-    //std::cout << v << std::endl;
+    phi_1 = 7 * M_PI / 6;
+    theta_1 = M_PI / 4;
+    psi_1 = 3 * M_PI / 4;
     
-    Eigen::Vector4f q = AngleAxis2Q(p, angle);
-    //std::cout << q(0) << "i +" << q(1) << "j +" << q(2) << "k +" << q(3) << std::endl;
-    
-    Eigen::Vector4f w = AngleAxis2Q(q);
-    //std::cout << w << std::endl;
+    phi_2 = M_PI/2;
+    theta_2 = -M_PI/3;
+    psi_2 = 5 * M_PI/4;
 
-    Eigen::Vector4f q1;
-    q1 << 0.433013, 0.786566, -0.362372, 0.25;
-    Eigen::Vector4f q2;
-    q2 << -0.092296, -0.701057, -0.430459, 0.560986;
-    slerp(q1, q2, 2, 30);
+    C1 << 2, 2, 2;
+    C2 << 7, 3, 0; 
+ 
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    
+    glutInitWindowSize(700, 700);
+    glutInitWindowPosition(300, 300);
+    glutCreateWindow("SLerp");
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearDepth(1.0f);
+    
+    animation_ongoing = 0;
+    
+    glutKeyboardFunc(on_keyboard);
+    glutReshapeFunc(on_reshape);
+    glutDisplayFunc(display);
+    glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+    glEnable(GL_DEPTH_TEST);
+    
+    glutMainLoop();
 
     return 0;
+}
+
+
+void display(void)
+{
+    // Coeffs for lighting
+    GLfloat light_position[] = { 1, 1, 1, 0 };
+    GLfloat light_ambient[] = { 0.1, 0.1, 0.1, 1 };
+    GLfloat light_diffuse[] = { 0.7, 0.7, 0.7, 1 };
+    GLfloat light_specular[] = { 0.9, 0.9, 0.9, 1 };
+    GLfloat ambient_coeffs[] = { 0.3, 0.3, 0.4, 1 };
+    GLfloat diffuse_coeffs[] = { 0.6, 0.6, 0.85, 1 };
+    GLfloat specular_coeffs[] = { 0.6, 0.6, 0.6, 1 };
+    GLfloat shininess = 60;
+
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+
+    glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_coeffs);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_coeffs);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, specular_coeffs);
+    glMaterialf(GL_FRONT, GL_SHININESS, shininess);
+
+    glEnable(GL_COLOR_MATERIAL);
+    
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(  12, 2, 12, 
+                6, 2, 3, 
+                0, 1, 0  );
+    
+    glPushMatrix();
+        glTranslatef(C1(0), C1(1), C1(2));
+        glRotatef(phi_1, 1, 0, 0);
+        glRotatef(theta_1, 0, 1, 0); 
+        glRotatef(psi_1, 0, 0, 1);
+        draw_coosys();
+    glPopMatrix();
+    
+    Eigen::MatrixXf A1(3, 3);
+    Eigen::MatrixXf A2(3, 3);
+    A1 = Euler2A(phi_1 * M_PI / 180.0, theta_1 * M_PI / 180.0, psi_1 * M_PI / 180.0);
+    A2 = Euler2A(phi_2 * M_PI / 180.0, theta_2 * M_PI / 180.0, psi_2 * M_PI / 180.0);
+
+    Eigen::Vector4f p_angle1;
+    p_angle1 = A2AngleAxis(A1, E);
+    double angle1 = p_angle1(3);
+    Eigen::Vector3f p1(p_angle1(0), p_angle1(1), p_angle1(2));
+    
+    Eigen::Vector4f p_angle2;
+    p_angle2 = A2AngleAxis(A2, E);
+    double angle2 = p_angle2(3);
+    Eigen::Vector3f p2(p_angle2(0), p_angle2(1), p_angle2(2));
+
+    Eigen::Vector4f q1 = AngleAxis2Q(p1, angle1);
+    Eigen::Vector4f q2 = AngleAxis2Q(p2, angle2);
+
+    Eigen::Vector4f q = slerp(q1, q2);
+    
+    Eigen::Vector4f p_angle = Q2AngleAxis(q);
+    
+    Eigen::Vector3f p(p_angle(0), p_angle(1), p_angle(2));
+    Eigen::MatrixXf A = Rodrigues(p, p_angle(3), E);
+    
+    Eigen::Vector3f angles = A2Euler(A);
+    
+    Eigen::Vector3f c_t;
+    c_t = (1 - t / t1) * C1 + t / t1 * C2;
+    
+    glPushMatrix();
+        glTranslatef(c_t(0), c_t(1), c_t(2));
+        glRotatef(angles(0) * 180 / M_PI, 1, 0, 0);
+        glRotatef(angles(1) * 180 / M_PI, 0, 1, 0); 
+        glRotatef(angles(2) * 180 / M_PI, 0, 0, 1);
+        glutWireDodecahedron();
+    glPopMatrix();
+
+    
+    glPushMatrix();
+        glTranslatef(C2(0), C2(1), C2(2));
+        glRotatef(phi_2, 1, 0, 0);
+        glRotatef(theta_2, 0, 1, 0); 
+        glRotatef(psi_2, 0, 0, 1);
+        draw_coosys();
+    glPopMatrix();
+
+    glutSwapBuffers();
+}
+
+void on_timer(int id)
+{
+    if (id != TIMER_ID) { 
+        return;
+    }
+    
+    if (t < t1) {
+        t += 0.02;
+    }
+    else {
+        animation_ongoing = 0;
+    }
+
+    glutPostRedisplay();
+    if (animation_ongoing) {
+        glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+    }
+}
+
+void on_keyboard(unsigned char key, int, int)
+{
+    // Exit on Esc
+    switch (key) {
+    case 27:
+        exit(0);
+        break;
+
+    // Go
+    case 'g':
+    case 'G':
+        if (!animation_ongoing) {
+            glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+            animation_ongoing = 1;
+        }
+        break;
+
+    // Stop
+    case 's':
+    case 'S':
+        animation_ongoing = 0;
+        break;
+    
+    // Reset
+    case 'r':
+    case 'R':
+        t = 0;
+        if (!animation_ongoing) {
+            glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+            animation_ongoing = 1;
+        }
+        break;
+    }
+}
+
+void on_reshape(int width, int height)
+{
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(45, (float) width / height, 1, 100);
 }
