@@ -47,7 +47,7 @@ Eigen::Vector3f A2Euler(Eigen::MatrixXf A)
         else {
             psi = atan2(A(0, 1), A(1, 1));
             theta = M_PI / 2; 
-            phi = 0 ;
+            phi = 0;
         }
     }
     else {
@@ -116,6 +116,24 @@ Eigen::Vector4f AngleAxis2Q(Eigen::Vector4f q)
     return v;
 }
 
+Eigen::Vector4f slerp(Eigen::Vector4f q1, Eigen::Vector4f q2, int t, int t1)
+{
+    double cos_ = q1.dot(q2) / (q1.norm() * q2.norm());
+
+    if (cos_ < 0) {
+        q1 = -q1;
+        cos_ = -cos_;
+    }
+
+    if (cos_ > 0.95) {
+        return q1;
+    }
+    
+    double angle = acos(cos_);
+
+    return (sin(angle * (1 - t / t1)) * q1 + sin(angle * (t / t1)) * q2) / sin(angle);
+}
+
 int main()
 {
     Eigen::MatrixXf E(3, 3);
@@ -143,6 +161,12 @@ int main()
     
     Eigen::Vector4f w = AngleAxis2Q(q);
     //std::cout << w << std::endl;
+
+    Eigen::Vector4f q1;
+    q1 << 0.433013, 0.786566, -0.362372, 0.25;
+    Eigen::Vector4f q2;
+    q2 << -0.092296, -0.701057, -0.430459, 0.560986;
+    slerp(q1, q2, 2, 30);
 
     return 0;
 }
